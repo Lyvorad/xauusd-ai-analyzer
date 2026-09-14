@@ -1,0 +1,61 @@
+# Blueprint de Render. Al conectar el repo, Render puede leer este archivo
+# y crear automáticamente el Web Service + el Cron Job + la base de datos.
+# (También se puede configurar todo a mano desde el dashboard si prefieres.)
+
+databases:
+  - name: oro-xauusd-db
+    plan: free
+    databaseName: oro_xauusd
+    user: oro_xauusd_user
+
+services:
+  - type: web
+    name: oro-xauusd-api
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: oro-xauusd-db
+          property: connectionString
+      - key: HABILITAR_SCHEDULER_LOCAL
+        value: "false"   # en Render el disparo automático lo hace el Cron Job de abajo
+      - key: GEMINI_API_KEY
+        sync: false       # se carga manualmente en el dashboard, nunca en el repo
+      - key: TWELVE_DATA_API_KEY
+        sync: false
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      - key: GOLDAPI_API_KEY
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: MARKETAUX_API_KEY
+        sync: false
+      - key: NEWSAPI_API_KEY
+        sync: false
+      - key: GNEWS_API_KEY
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+
+  - type: cron
+    name: oro-xauusd-cron
+    env: python
+    plan: free
+    schedule: "*/30 * * * *"   # cada 30 minutos
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: >
+      python -c "
+      import os, httpx;
+      url = os.environ['API_URL'] + '/interno/ejecutar-analisis';
+      r = httpx.post(url, headers={'x-cron-secret': os.environ['CRON_SECRET']}, timeout=60);
+      print(r.status_code, r.text)
+      "
+    envVars:
+      - key: API_URL
+        value: "https://oro-xauusd-api.onrender.com"  # ajusta al dominio real que te dé Render
+      - key: CRON_SECRET
+        sync: false   # debe ser IGUAL al que pusiste en el Web Service
