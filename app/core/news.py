@@ -130,11 +130,89 @@ async def _gnews(client: httpx.AsyncClient) -> list[Noticia]:
         return []
 
 
+async def _alpha_vantage_news(client: httpx.AsyncClient) -> list[Noticia]:
+    """
+    Ventaja de esta fuente: ya trae el sentimiento calculado (bullish/bearish/
+    neutral) por Alpha Vantage, no hace falta que lo infiera Gemini.
+    """
+    if not settings.alpha_vantage_api_key:
+        return []
+    try:
+        r = await client.get(
+            "https://www.alphavantage.co/query",
+            params={
+                "function": "NEWS_SENTIMENT",
+                "topics": "financial_markets,economy_macro",
+                "apikey": settings.alpha_vantage_api_key,
+            },
+        )
+        data = r.json()
+        noticias = []
+        for item in data.get("feed", []):
+            score = item.get("overall_sentiment_label")  # ej. "Bullish", "Bearish", "Neutral"
+            noticias.append(
+                Noticia(
+                    titulo=item.get("title", ""),
+                    fuente="alpha_vantage_news",
+                    fecha=_parse_fecha_av(item.get("time_published")),
+                    url=item.get("url", ""),
+                    sentimiento=score,
+                )
+            )
+        return noticias
+    except Exception:
+        return []
+
+
+async def _finnhub_news(client: httpx.AsyncClient) -> list[Noticia]:
+    if not settings.finnhub_api_key:
+        return []
+    try:
+        r = await client.get(
+            "https://finnhub.io/api/v1/news",
+            params={"category": "general", "token": settings.finnhub_api_key},
+        )
+        data = r.json()
+        noticias = []
+        for item in data[:20]:  # finnhub no pagina, recorta acá
+            noticias.append(
+                Noticia(
+                    titulo=item.get("headline", ""),
+                    fuente="finnhub_news",
+                    fecha=_parse_fecha_unix(item.get("datetime")),
+                    url=item.get("url", ""),
+                )
+            )
+        return noticias
+    except Exception:
+        return []
+
+
 def _parse_fecha(valor: str | None) -> datetime | None:
     if not valor:
         return None
     try:
         return datetime.fromisoformat(valor.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def _parse_fecha_av(valor: str | None) -> datetime | None:
+    """Alpha Vantage devuelve fechas como '20240115T093000' (sin separadores)."""
+    if not valor:
+        return None
+    try:
+        return datetime.strptime(valor, "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+
+def _parse_fecha_unix(valor: int | None) -> datetime | None:
+    """Finnhub devuelve timestamps Unix (segundos)."""
+    if not valor:
+        return None
+    try:
+        return datetime.fromtimestamp(valor, tz=timezone.utc)
     except Exception:
         return None
 
@@ -145,6 +223,8 @@ async def obtener_noticias_relevantes(max_resultado: int = 10) -> list[Noticia]:
             _marketaux(client),
             _newsapi(client),
             _gnews(client),
+            _alpha_vantage_news(client),
+            _finnhub_news(client),
         )
 
     todas: list[Noticia] = [n for lista in resultados for n in lista]

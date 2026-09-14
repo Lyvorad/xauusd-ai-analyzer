@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     alpha_vantage_api_key: str = ""
     goldapi_api_key: str = ""
     finnhub_api_key: str = ""
+    metals_api_key: str = ""
 
     # --- Noticias ---
     marketaux_api_key: str = ""

@@ -109,6 +109,29 @@ async def _finnhub(client: httpx.AsyncClient) -> PrecioFuente:
         return PrecioFuente("finnhub", None, str(e))
 
 
+async def _metals_api(client: httpx.AsyncClient) -> PrecioFuente:
+    if not settings.metals_api_key:
+        return PrecioFuente("metals_api", None, "sin API key configurada")
+    try:
+        # Metals-API da el precio como XAU por 1 USD (inverso), hay que invertirlo
+        r = await client.get(
+            "https://metals-api.com/api/latest",
+            params={
+                "access_key": settings.metals_api_key,
+                "base": "USD",
+                "symbols": "XAU",
+            },
+        )
+        data = r.json()
+        tasa = data.get("rates", {}).get("XAU")
+        if not tasa:
+            return PrecioFuente("metals_api", None, str(data))
+        precio_onza = 1 / float(tasa)  # convierte "XAU por USD" a "USD por onza"
+        return PrecioFuente("metals_api", precio_onza)
+    except Exception as e:
+        return PrecioFuente("metals_api", None, str(e))
+
+
 async def obtener_precio_consenso() -> ConsensoPrecio:
     """
     Punto de entrada del módulo. Llama a todas las fuentes en paralelo,
@@ -120,6 +143,7 @@ async def obtener_precio_consenso() -> ConsensoPrecio:
             _alpha_vantage(client),
             _goldapi(client),
             _finnhub(client),
+            _metals_api(client),
         )
 
     validos = [r for r in resultados if r.precio is not None]
