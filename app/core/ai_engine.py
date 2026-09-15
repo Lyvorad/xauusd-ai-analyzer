@@ -45,7 +45,7 @@ ESQUEMA_RESPUESTA = {
     "required": ["direccion", "confianza", "soporte", "resistencia", "resumen", "riesgos"],
 }
 
-MODELO = "gemini-2.5-flash"  # rápido y económico, suficiente para este análisis
+MODELO = "gemini-3.6-flash"  # rápido y económico, suficiente para este análisis
 
 
 @dataclass
