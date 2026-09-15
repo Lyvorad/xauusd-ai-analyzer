@@ -2,6 +2,7 @@ import logging
 import os
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.db.database import Base, engine
 from app.api.routes import router
@@ -17,6 +18,17 @@ app = FastAPI(
     title="Asistente Inteligente de Análisis para Oro (XAU/USD)",
     description="Backend de análisis automático de mercado combinando precio, indicadores técnicos y noticias, procesado por IA.",
     version="0.1.0",
+)
+
+# CORS: permite que el frontend (en otro dominio de Render) pueda llamar
+# a esta API desde el navegador. Por ahora abierto a "*" para probar rápido;
+# cuando tengas el dominio final del frontend, restringe allow_origins a
+# esa URL exacta en vez de "*".
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(router)
