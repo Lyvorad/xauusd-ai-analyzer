@@ -45,7 +45,12 @@ async def reporte_ahora(db: Session = Depends(get_db)):
         )
 
     _ultima_consulta_manual = ahora
-    reporte = await generar_analisis(db, origen="manual")
+    try:
+        reporte = await generar_analisis(db, origen="manual")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
     return reporte
 
 
